@@ -37,6 +37,10 @@ def wrap(text, width=18):
         else:
             cur = (cur + " " + w).strip()
     lines.append(cur)
+    # не оставлять в последней строке одно короткое слово вроде «2».»
+    if len(lines) > 1 and len(lines[-1]) <= 4 and " " in lines[-2]:
+        head, last = lines[-2].rsplit(" ", 1)
+        lines[-2], lines[-1] = head, last + " " + lines[-1]
     return r"\N".join(lines)
 
 
@@ -63,7 +67,7 @@ def make_ass(phrases, words, total, path, align=2, marginv=620):
             end = nxt - 0.05 if nxt - en < 1.0 else en + 0.4
         else:
             end = total
-        events.append(f"Dialogue: 0,{ts(st - 0.08)},{ts(end)},Main,,0,0,0,,{{\\fad(150,100)}}{wrap(p)}")
+        events.append(f"Dialogue: 0,{ts(st - 0.08)},{ts(end)},Main,,0,0,0,,{{\\fad(150,100)\\blur4}}{wrap(p)}")
     head = f"""[Script Info]
 ScriptType: v4.00+
 PlayResX: {W}
@@ -72,7 +76,7 @@ WrapStyle: 2
 
 [V4+ Styles]
 Format: Name, Fontname, Fontsize, PrimaryColour, SecondaryColour, OutlineColour, BackColour, Bold, Italic, Underline, StrikeOut, ScaleX, ScaleY, Spacing, Angle, BorderStyle, Outline, Shadow, Alignment, MarginL, MarginR, MarginV, Encoding
-Style: Main,Lora,96,&H00FFFFFF,&H00FFFFFF,&H00000000,&H96000000,0,1,0,0,100,100,0,0,1,3,4.5,{align},80,80,{marginv},1
+Style: Main,Lora,96,&H00FFFFFF,&H00FFFFFF,&H50000000,&H96000000,0,1,0,0,100,100,0,0,1,6,3,{align},80,80,{marginv},1
 
 [Events]
 Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text
