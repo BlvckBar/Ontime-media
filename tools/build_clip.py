@@ -11,7 +11,10 @@ spec: {
   "zoom": 1.0,           # >1 — увеличить кадр и обрезать края
   "delogo": [x, y, w, h],  # необязательно: замазать водяной знак (координаты исходника)
   "crop": [w, h, x, y],    # необязательно: срезать чёрные полосы (см. ffmpeg cropdetect)
-  "font_dir": "fonts/"
+  "font_dir": "fonts/",
+  "voice": ["vo/01.wav", ...],  # необязательно: закадровый перевод, по файлу на каждую строку subs;
+  "voice_lag": 0.15,            # фраза стартует чуть позже английской и укладывается до следующей
+  "orig_volume": 0.25           # громкость оригинала под голосом
 }
 """
 import json, subprocess, sys, os, tempfile
@@ -78,6 +81,43 @@ Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text
         f.write(head + "\n".join(ev) + "\n")
 
 
+def dur(path):
+    return float(subprocess.check_output(["ffprobe", "-v", "error", "-show_entries", "format=duration",
+                                          "-of", "csv=p=0", path]))
+
+
+def build_voice(spec, p, tmp, length):
+    """Каждую фразу обрезаем по тишине, при нужде ускоряем (до 1.3x), чтобы она уложилась
+    в окно своей английской реплики, и ставим на место через adelay."""
+    lag = spec.get("voice_lag", 0.15)
+    subs, start = spec["subs"], spec["start"]
+    parts = []
+    for k, (f, (a, b, _)) in enumerate(zip(spec["voice"], subs)):
+        nxt = subs[k + 1][0] if k + 1 < len(subs) else spec["end"]
+        window = max(nxt - a - lag - 0.05, 0.5)
+        trimmed = os.path.join(tmp, f"v{k:02d}.wav")
+        subprocess.run(["ffmpeg", "-v", "error", "-y", "-i", p(f), "-af",
+                        "silenceremove=start_periods=1:start_threshold=-45dB,areverse,"
+                        "silenceremove=start_periods=1:start_threshold=-45dB,areverse",
+                        "-ar", "48000", "-ac", "1", trimmed], check=True)
+        d = dur(trimmed)
+        tempo = min(max(d / window, 1.0), 1.3)
+        if d / tempo > window + 0.05:
+            print(f"фраза {k + 1} длиннее окна: {d / tempo:.2f} с > {window:.2f} с", file=sys.stderr)
+        parts.append((trimmed, a - start + lag, tempo))
+    ins, chains = [], []
+    for i, (f, at, tempo) in enumerate(parts):
+        ins += ["-i", f]
+        ms = int(max(at, 0) * 1000)
+        chains.append(f"[{i}:a]atempo={tempo:.3f},adelay={ms}|{ms}[p{i}]")
+    mix = "".join(f"[p{i}]" for i in range(len(parts)))
+    out = os.path.join(tmp, "voice.wav")
+    fc = ";".join(chains) + f";{mix}amix=inputs={len(parts)}:normalize=0,loudnorm=I=-14:TP=-1.5[o]"
+    subprocess.run(["ffmpeg", "-v", "error", "-y", *ins, "-filter_complex", fc, "-map", "[o]",
+                    "-ar", "48000", "-t", str(length), out], check=True)
+    return out
+
+
 def main():
     spec = json.load(open(sys.argv[1], encoding="utf-8"))
     base = os.path.dirname(os.path.abspath(sys.argv[1]))
@@ -97,6 +137,8 @@ def main():
     ass = os.path.join(tmp, "subs.ass")
     make_ass(spec, length, box_top, box_bottom, ass)
 
+    voice = build_voice(spec, p, tmp, length) if spec.get("voice") else None
+
     pre = ""
     if spec.get("delogo"):
         x, y, w, h = spec["delogo"]
@@ -113,9 +155,14 @@ def main():
         f"fade=t=out:st={length - 0.4}:d=0.4,"
         f"ass={ass}:fontsdir={font_dir},format=yuv420p[v];"
         f"[0:a]asetpts=PTS-STARTPTS,afade=t=in:d=0.3,afade=t=out:st={length - 0.6}:d=0.6,"
-        f"loudnorm=I=-15:TP=-1.5,apad=pad_dur={TAIL}[au]"
+        f"loudnorm=I=-15:TP=-1.5"
     )
+    if voice:
+        fc += (f",volume={spec.get('orig_volume', 0.25)}[orig];"
+               f"[1:a]apad[vo];[orig][vo]amix=inputs=2:duration=first:normalize=0,alimiter=limit=0.95")
+    fc += f",apad=pad_dur={TAIL}[au]"
     cmd = ["ffmpeg", "-v", "error", "-y", "-ss", str(spec["start"]), "-t", str(length), "-i", src,
+           *(["-i", voice] if voice else []),
            "-filter_complex", fc, "-map", "[v]", "-map", "[au]",
            "-c:v", "libx264", "-preset", "medium", "-crf", "20", "-r", str(FPS),
            "-c:a", "aac", "-b:a", "160k", "-ar", "48000", "-movflags", "+faststart",
