@@ -12,7 +12,7 @@ spec: {
   "delogo": [x, y, w, h],  # необязательно: замазать водяной знак (координаты исходника)
   "crop": [w, h, x, y],    # необязательно: срезать чёрные полосы (см. ffmpeg cropdetect)
   "font_dir": "fonts/",
-  "voice": ["vo/01.wav", ...],  # необязательно: закадровый перевод, по файлу на каждую строку subs;
+  "voice": ["vo/01.wav", ...],  # необязательно: закадровый перевод, по файлу на каждую строку subs (null — без голоса);
   "voice_lag": 0.15,            # фраза стартует чуть позже английской и укладывается до следующей
   "orig_volume": 0.25           # громкость оригинала под голосом
 }
@@ -93,6 +93,8 @@ def build_voice(spec, p, tmp, length):
     subs, start = spec["subs"], spec["start"]
     parts = []
     for k, (f, (a, b, _)) in enumerate(zip(spec["voice"], subs)):
+        if not f:  # реплику без озвучки оставляем только субтитром
+            continue
         nxt = subs[k + 1][0] if k + 1 < len(subs) else spec["end"]
         window = max(nxt - a - lag - 0.05, 0.5)
         trimmed = os.path.join(tmp, f"v{k:02d}.wav")
