@@ -66,7 +66,7 @@ def word_line(phrase, ws, st):
         parts.append(f"{{\\alpha&HFF&\\t({t0},{t0 + 300},\\alpha&H00&)}}{clean(tok)}")
     lines, cur, cur_toks, n = [], [], [], 0
     for part, tok in zip(parts, tokens(phrase)):
-        if cur and n + 1 + len(clean(tok)) > 24:
+        if cur and n + 1 + len(clean(tok)) > 21:
             # предлог или союз в одну-две буквы переносим вместе со следующим словом
             carry = [cur.pop()] if len(cur) > 1 and len(clean(cur_toks[-1])) <= 2 else []
             lines.append(" ".join(cur))
@@ -113,7 +113,7 @@ WrapStyle: 2
 Format: Name, Fontname, Fontsize, PrimaryColour, SecondaryColour, OutlineColour, BackColour, Bold, Italic, Underline, StrikeOut, ScaleX, ScaleY, Spacing, Angle, BorderStyle, Outline, Shadow, Alignment, MarginL, MarginR, MarginV, Encoding
 Style: Main,Lora,96,&H00FFFFFF,&H00FFFFFF,&H50000000,&H96000000,0,1,0,0,100,100,0,0,1,6,3,{align},80,80,{marginv},1
 Style: Brand,Lora,130,&H00FFFFFF,&H00FFFFFF,&H00000000,&H00000000,0,1,0,0,100,100,0,0,1,0,0,5,60,60,0,1
-Style: Words,Montserrat,54,&H00FFFFFF,&H00FFFFFF,&H64000000,&H00000000,0,0,0,0,100,100,4,0,1,3,0,5,90,90,0,1
+Style: Words,Montserrat,64,&H00FFFFFF,&H00FFFFFF,&H64000000,&H00000000,0,0,0,0,100,100,4,0,1,3,0,5,90,90,0,1
 
 [Events]
 Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text
