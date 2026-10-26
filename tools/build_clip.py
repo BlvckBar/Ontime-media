@@ -10,6 +10,7 @@ spec: {
   "subs": [[32.0, 34.8, "Мой врач..."], ...],   # время в секундах исходника
   "zoom": 1.0,           # >1 — увеличить кадр и обрезать края
   "delogo": [x, y, w, h],  # необязательно: замазать водяной знак (координаты исходника)
+  "bg_brightness": -0.32,  # необязательно: затемнение размытого фона (для светлых кадров ниже, напр. -0.55)
   "crop": [w, h, x, y],    # необязательно: срезать чёрные полосы (см. ffmpeg cropdetect)
   "font_dir": "fonts/",
   "voice": ["vo/01.wav", ...],  # необязательно: закадровый перевод, по файлу на каждую строку subs (null — без голоса);
@@ -150,7 +151,7 @@ def main():
         pre += f"crop={cw}:{ch}:{cx}:{cy},"
     fc = (
         f"[0:v]setpts=PTS-STARTPTS,{pre}fps={FPS},split[a][b];"
-        f"[a]scale={W}:{H}:force_original_aspect_ratio=increase,crop={W}:{H},boxblur=30:3,eq=brightness=-0.32[bg];"
+        f"[a]scale={W}:{H}:force_original_aspect_ratio=increase,crop={W}:{H},boxblur=30:3,eq=brightness={spec.get('bg_brightness', -0.32)}[bg];"
         f"[b]scale={vw}:{vh},crop={min(vw, W)}:{vh}[fg];"
         f"[bg][fg]overlay=(W-w)/2:{box_top},"
         f"tpad=stop_mode=add:stop_duration={TAIL}:color=black,"
