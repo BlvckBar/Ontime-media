@@ -18,6 +18,7 @@ import json, re, subprocess, sys, os, tempfile
 W, H, FPS = 1080, 1920, 30
 XFADE = 0.8
 TAIL = 1.5
+OUTRO = 1.6  # чёрная заставка «On time» в конце, как в нарезках
 
 
 def dur(path):
@@ -78,7 +79,7 @@ def word_line(phrase, ws, st):
     return r"\N".join(lines)
 
 
-def make_ass(phrases, words, total, path, align=2, marginv=620, style="phrases"):
+def make_ass(phrases, words, total, path, align=2, marginv=620, style="phrases", outro=0):
     words = [w for w in words if re.search(r"\w", w[0])]
     counts = [len(tokens(p)) for p in phrases]
     if sum(counts) != len(words):
@@ -100,6 +101,8 @@ def make_ass(phrases, words, total, path, align=2, marginv=620, style="phrases")
             events.append(f"Dialogue: 0,{ts(st)},{ts(end)},Words,,0,0,0,,{{\\fad(0,150)\\blur3}}{word_line(p, ws, st)}")
         else:
             events.append(f"Dialogue: 0,{ts(st - 0.08)},{ts(end)},Main,,0,0,0,,{{\\fad(150,100)\\blur4}}{wrap(p)}")
+    if outro:
+        events.append(f"Dialogue: 0,{ts(total)},{ts(total + outro)},Brand,,0,0,0,,{{\\fad(400,0)}}On time")
     head = f"""[Script Info]
 ScriptType: v4.00+
 PlayResX: {W}
@@ -109,6 +112,7 @@ WrapStyle: 2
 [V4+ Styles]
 Format: Name, Fontname, Fontsize, PrimaryColour, SecondaryColour, OutlineColour, BackColour, Bold, Italic, Underline, StrikeOut, ScaleX, ScaleY, Spacing, Angle, BorderStyle, Outline, Shadow, Alignment, MarginL, MarginR, MarginV, Encoding
 Style: Main,Lora,96,&H00FFFFFF,&H00FFFFFF,&H50000000,&H96000000,0,1,0,0,100,100,0,0,1,6,3,{align},80,80,{marginv},1
+Style: Brand,Lora,130,&H00FFFFFF,&H00FFFFFF,&H00000000,&H00000000,0,1,0,0,100,100,0,0,1,0,0,5,60,60,0,1
 Style: Words,Montserrat,54,&H00FFFFFF,&H00FFFFFF,&H64000000,&H00000000,0,0,0,0,100,100,4,0,1,3,0,5,90,90,0,1
 
 [Events]
@@ -124,6 +128,7 @@ def main(spec_path):
     p = lambda x: x if os.path.isabs(x) else os.path.join(base, x)
     voice, clips = p(spec["voice"]), [p(c) for c in spec["clips"]]
     total = dur(voice) + TAIL
+    outro = OUTRO if spec.get("outro", True) else 0
     n = len(clips)
     raw = sum(dur(c) for c in clips) - XFADE * (n - 1)
     slow = max(1.0, (total + 0.2) / raw)
@@ -131,7 +136,7 @@ def main(spec_path):
     tmp = tempfile.mkdtemp()
     ass = os.path.join(tmp, "subs.ass")
     make_ass(spec["phrases"], json.load(open(p(spec["words"]), encoding="utf-8")), total, ass,
-             spec.get("align", 2), spec.get("marginv", 620), spec.get("style", "phrases"))
+             spec.get("align", 2), spec.get("marginv", 620), spec.get("style", "phrases"), outro)
     lb = spec.get("letterbox", False)
     fit = (f"scale={W}:{W * 9 // 16}:force_original_aspect_ratio=increase,crop={W}:{W * 9 // 16},"
            f"pad={W}:{H}:0:(oh-ih)/2:color=0x141414" if lb else
@@ -149,22 +154,22 @@ def main(spec_path):
         last = f"x{k}"
     fd = p(spec.get("font_dir", "fonts"))
     filt.append(f"[{last}]trim=0:{total:.3f},eq=brightness={-0.15 if lb else -0.08}:saturation={0.8 if lb else 1},vignette=PI/5,"
-                f"fade=t=out:st={total - 0.6:.3f}:d=0.6,"
+                f"fade=t=out:st={total - 0.6:.3f}:d=0.6,tpad=stop_mode=add:stop_duration={outro}:color=black,"
                 f"subtitles='{ass}':fontsdir='{fd}'[v]")
     vi = n
     mi = n + 1
     inputs += ["-i", voice, "-ss", str(spec.get("music_offset", 0)), "-i", p(spec["music"])]
     vol = spec.get("music_volume", 0.2)
-    filt.append(f"[{mi}:a]atrim=0:{total:.3f},asetpts=PTS-STARTPTS,volume={vol},"
-                f"afade=t=in:d=1,afade=t=out:st={total - 1.5:.3f}:d=1.5[m]")
+    filt.append(f"[{mi}:a]atrim=0:{total + outro:.3f},asetpts=PTS-STARTPTS,volume={vol},"
+                f"afade=t=in:d=1,afade=t=out:st={total + outro - 2:.3f}:d=2[m]")
     filt.append(f"[{vi}:a]aresample=48000,adelay=0|0[vo]")
     filt.append("[vo][m]amix=inputs=2:duration=longest:normalize=0,aresample=48000[a]")
     cmd = ["ffmpeg", "-y", "-v", "error", *inputs, "-filter_complex", ";".join(filt),
-           "-map", "[v]", "-map", "[a]", "-t", f"{total:.3f}",
+           "-map", "[v]", "-map", "[a]", "-t", f"{total + outro:.3f}",
            "-c:v", "libx264", "-preset", "medium", "-crf", "20", "-pix_fmt", "yuv420p",
            "-c:a", "aac", "-b:a", "192k", "-ac", "2", "-movflags", "+faststart", p(spec["out"])]
     subprocess.run(cmd, check=True)
-    print(f"{spec['out']}: {total:.1f} c, замедление фона x{slow:.2f}")
+    print(f"{spec['out']}: {total + outro:.1f} c, замедление фона x{slow:.2f}")
 
 
 if __name__ == "__main__":
