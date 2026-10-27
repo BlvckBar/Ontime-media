@@ -66,7 +66,7 @@ def word_line(phrase, ws, st):
         parts.append(f"{{\\alpha&HFF&\\t({t0},{t0 + 300},\\alpha&H00&)}}{clean(tok)}")
     lines, cur, cur_toks, n = [], [], [], 0
     for part, tok in zip(parts, tokens(phrase)):
-        if cur and n + 1 + len(clean(tok)) > 21:
+        if cur and n + 1 + len(clean(tok)) > 19:
             # предлог или союз в одну-две буквы переносим вместе со следующим словом
             carry = [cur.pop()] if len(cur) > 1 and len(clean(cur_toks[-1])) <= 2 else []
             lines.append(" ".join(cur))
@@ -103,6 +103,7 @@ def make_ass(phrases, words, total, path, align=2, marginv=620, style="phrases",
             events.append(f"Dialogue: 0,{ts(st - 0.08)},{ts(end)},Main,,0,0,0,,{{\\fad(150,100)\\blur4}}{wrap(p)}")
     if outro:
         events.append(f"Dialogue: 0,{ts(total)},{ts(total + outro)},Brand,,0,0,0,,{{\\fad(400,0)}}On time")
+        events.append(f"Dialogue: 0,{ts(total + 0.3)},{ts(total + outro)},BrandSub,,0,0,0,,{{\\fad(400,0)\\an8\\pos({W // 2},1060)}}подпишись, чтобы не пропустить")
     head = f"""[Script Info]
 ScriptType: v4.00+
 PlayResX: {W}
@@ -113,7 +114,8 @@ WrapStyle: 2
 Format: Name, Fontname, Fontsize, PrimaryColour, SecondaryColour, OutlineColour, BackColour, Bold, Italic, Underline, StrikeOut, ScaleX, ScaleY, Spacing, Angle, BorderStyle, Outline, Shadow, Alignment, MarginL, MarginR, MarginV, Encoding
 Style: Main,Lora,96,&H00FFFFFF,&H00FFFFFF,&H50000000,&H96000000,0,1,0,0,100,100,0,0,1,6,3,{align},80,80,{marginv},1
 Style: Brand,Lora,130,&H00FFFFFF,&H00FFFFFF,&H00000000,&H00000000,0,1,0,0,100,100,0,0,1,0,0,5,60,60,0,1
-Style: Words,Montserrat,64,&H00FFFFFF,&H00FFFFFF,&H64000000,&H00000000,0,0,0,0,100,100,4,0,1,3,0,5,90,90,0,1
+Style: BrandSub,Montserrat,42,&H40FFFFFF,&H40FFFFFF,&H00000000,&H00000000,0,0,0,0,100,100,3,0,1,0,0,8,60,60,0,1
+Style: Words,Montserrat,72,&H00FFFFFF,&H00FFFFFF,&H64000000,&H00000000,0,0,0,0,100,100,4,0,1,3,0,5,90,90,0,1
 
 [Events]
 Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text
