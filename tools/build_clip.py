@@ -15,13 +15,15 @@ spec: {
   "font_dir": "fonts/",
   "voice": ["vo/01.wav", ...],  # необязательно: закадровый перевод, по файлу на каждую строку subs (null — без голоса);
   "voice_lag": 0.15,            # фраза стартует чуть позже английской и укладывается до следующей
-  "orig_volume": 0.25           # громкость оригинала под голосом
+  "orig_volume": 0.25,          # громкость оригинала под голосом
+  "brand_sub": "..."            # необязательно: строка под «On time» на заставке ("" — убрать)
 }
 """
 import json, subprocess, sys, os, tempfile
 
 W, H, FPS = 1080, 1920, 30
 TAIL = 1.6
+BRAND_SUB = "подпишись, чтобы не пропустить"  # мелкая строка под «On time» на заставке (spec "brand_sub": "" — убрать)
 
 
 def probe(path):
@@ -60,6 +62,8 @@ def make_ass(spec, length, box_top, box_bottom, path):
         if b > a:
             ev.append(f"Dialogue: 0,{ts(a)},{ts(b)},Sub,,0,0,0,,{wrap(text, 34)}")
     ev.append(f"Dialogue: 0,{ts(length)},{ts(length + TAIL)},Brand,,0,0,0,,{{\\fad(400,0)}}On time")
+    if spec.get("brand_sub", BRAND_SUB):
+        ev.append(f"Dialogue: 0,{ts(length)},{ts(length + TAIL)},BrandSub,,0,0,0,,{{\\fad(600,0)}}{spec.get('brand_sub', BRAND_SUB)}")
     hook_mv = max(box_top - 330, 120)
     sub_mv = box_bottom + 50
     head = f"""[Script Info]
@@ -74,6 +78,7 @@ Style: Hook,Lora,70,&H00FFFFFF,&H00FFFFFF,&H64000000,&H96000000,0,1,0,0,100,100,
 Style: Sub,Lora,56,&H00FFFFFF,&H00FFFFFF,&H00000000,&H96000000,0,1,0,0,100,100,0,0,1,4,2,8,60,60,{sub_mv},1
 Style: Title,Lora,40,&H00C8C8C8,&H00FFFFFF,&H64000000,&H96000000,0,1,0,0,100,100,0,0,1,2,1,2,60,60,170,1
 Style: Brand,Lora,130,&H00FFFFFF,&H00FFFFFF,&H00000000,&H00000000,0,1,0,0,100,100,0,0,1,0,0,5,60,60,0,1
+Style: BrandSub,Lora,46,&H00BEBEBE,&H00FFFFFF,&H00000000,&H00000000,0,1,0,0,100,100,0,0,1,0,0,8,60,60,{H // 2 + 100},1
 
 [Events]
 Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text
